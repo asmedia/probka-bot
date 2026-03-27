@@ -164,8 +164,13 @@ async def approve_report(callback: types.CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("Рухсат йўқ!")
         return
-    original_text = callback.message.text.replace("📬 Янги хабар (модерация)\n\n", "")
-    success = await send_to_channel(original_text)
+    user_id = int(callback.data.split("_")[1])
+    report = pending_reports.get(user_id)
+    if not report:
+        await callback.answer("Хабар топилмади ❌")
+        return
+    formatted = format_report(report["user"], report["text"], report.get("location"))
+    success = await send_to_channel(formatted)
     if success:
         await callback.message.edit_text(callback.message.text + "\n\n✅ <b>ТАСДИҚЛАНДИ</b>", parse_mode="HTML")
         await callback.answer("Каналга юборилди! ✅")
