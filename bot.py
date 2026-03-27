@@ -170,7 +170,8 @@ async def approve_report(callback: types.CallbackQuery):
         await callback.answer("Хабар топилмади ❌")
         return
     formatted = format_report(report["user"], report["text"], report.get("location"))
-    success = await send_to_channel(formatted)
+    success = await send_to_channel(formatted
+    )
     if success:
         await callback.message.edit_text(callback.message.text + "\n\n✅ <b>ТАСДИҚЛАНДИ</b>", parse_mode="HTML")
         await callback.answer("Каналга юборилди! ✅")
