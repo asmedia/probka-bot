@@ -164,11 +164,15 @@ async def approve_report(callback: types.CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("Рухсат йўқ!")
         return
-    original_text = callback.message.text.replace("📬 Янги хабар (модерация)\n\n", "")
-    success = await send_to_channel(original_text)
-    )
+    msg = callback.message
+    # Xabar matnini olish
+    text = msg.html_text if msg.html_text else msg.text
+    # "📬 Янги хабар (модерация)\n\n" qismini olib tashlash
+    text = text.replace("📬 <b>Янги хабар (модерация)</b>\n\n", "")
+    text = text.replace("📬 Янги хабар (модерация)\n\n", "")
+    success = await send_to_channel(text)
     if success:
-        await callback.message.edit_text(callback.message.text + "\n\n✅ <b>ТАСДИҚЛАНДИ</b>", parse_mode="HTML")
+        await msg.edit_text(msg.html_text + "\n\n✅ <b>ТАСДИҚЛАНДИ</b>", parse_mode="HTML")
         await callback.answer("Каналга юборилди! ✅")
     else:
         await callback.answer("Хато юз берди ❌")
