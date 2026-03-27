@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
+# Xabarlarni saqlash uchun - kalit: admin_message_id, qiymat: formatted text
+saved_reports = {}
+
 def format_report(user, text, location=None):
     time_str = datetime.now().strftime("%H:%M")
     name = user.full_name or "Номаълум"
@@ -147,12 +150,14 @@ async def process_and_send(message, user_id):
     formatted = format_report(report["user"], report["text"], report.get("location"))
     for admin_id in ADMIN_IDS:
         try:
-            await bot.send_message(
+            sent = await bot.send_message(
                 chat_id=admin_id,
                 text=f"📬 <b>Янги хабар (модерация)</b>\n\n{formatted}",
                 parse_mode="HTML",
                 reply_markup=admin_keyboard(user_id)
             )
+            # Xabar ID si bo'yicha formatted textni saqlaymiz
+            saved_reports[sent.message_id] = formatted
         except Exception as e:
             logger.error(f"Админга юборишда хато: {e}")
     del pending_reports[user_id]
@@ -164,16 +169,19 @@ async def approve_report(callback: types.CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("Рухсат йўқ!")
         return
-    msg = callback.message
-    # Xabar matnini olish
-    text = msg.html_text if msg.html_text else msg.text
-    # "📬 Янги хабар (модерация)\n\n" qismini olib tashlash
-    text = text.replace("📬 <b>Янги хабар (модерация)</b>\n\n", "")
-    text = text.replace("📬 Янги хабар (модерация)\n\n", "")
-    success = await send_to_channel(text)
+    msg_id = callback.message.message_id
+    formatted = saved_reports.get(msg_id)
+    if not formatted:
+        await callback.answer("Хабар муддати ўтган ёки топилмади ❌")
+        return
+    success = await send_to_channel(formatted)
     if success:
-        await msg.edit_text(msg.html_text + "\n\n✅ <b>ТАСДИҚЛАНДИ</b>", parse_mode="HTML")
+        await callback.message.edit_text(
+            callback.message.text + "\n\n✅ ТАСДИҚЛАНДИ",
+            parse_mode=None
+        )
         await callback.answer("Каналга юборилди! ✅")
+        saved_reports.pop(msg_id, None)
     else:
         await callback.answer("Хато юз берди ❌")
 
@@ -182,7 +190,12 @@ async def reject_report(callback: types.CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("Рухсат йўқ!")
         return
-    await callback.message.edit_text(callback.message.text + "\n\n❌ <b>РАД ЭТИЛДИ</b>", parse_mode="HTML")
+    msg_id = callback.message.message_id
+    saved_reports.pop(msg_id, None)
+    await callback.message.edit_text(
+        callback.message.text + "\n\n❌ РАД ЭТИЛДИ",
+        parse_mode=None
+    )
     await callback.answer("Рад этилди ❌")
 
 async def auto_traffic_update():
